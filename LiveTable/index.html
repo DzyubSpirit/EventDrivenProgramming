@@ -1,51 +1,85 @@
 <!DOCTYPE html>
 <html>
+<head>
+<meta charset="utf-8" />
+</head>
 <body>
-<h1>Live table</h1>
-<table id="table"></table>
+<h1>Live canvas</h1>
+<canvas width="640" height="480" id="canvas">
+</canvas>
 <style>
-input { border: 1px solid green; width: 30px; }
+canvas {
+  border: 1px solid black;
+}
 </style>
 <script>
+  var lines = [];
+  var canvas = document.getElementById("canvas");
+  var canvasBounds = canvas.getBoundingClientRect();
+  var curLine = null;
 
-  var table = document.getElementById('table');
-  var cells = {};
-  var letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  canvas.onmousedown = function(e) {
+    var lx = e.clientX - canvasBounds.x;
+    var ly = e.clientY - canvasBounds.y;
+    curLine = {
+      x1: lx, y1: ly, x2:lx, y2:ly
+    }
+  }
+  canvas.onmousemove = function(e) {
+    if (curLine !== null) {
+      var lx = e.clientX - canvasBounds.x;
+      var ly = e.clientY - canvasBounds.y;
+      curLine.x2 = lx;
+      curLine.y2 = ly;
+      repaint(); 
+    }
+  }
+  canvas.onmouseup = function(e) {
+    socket.send(JSON.stringify(curLine));
+    lines.push(curLine);
+    curLine = null;
+  }
 
-  var tr;
-  tr = document.createElement('tr');
-  tr.innerHTML = '<td></td>' + letters.map(function(col) {
-    return '<td>' + col + '</td>';
-  }).join('');
-  table.appendChild(tr);
-
-  for (var i = 1; i <= 5; i++) {
-    tr = document.createElement('tr');
-    tr.innerHTML = '<td>' + i + '</td>' + letters.map(function(col) {
-      return '<td><input id="' + col + i + '" type="text"></td>';
-    }).join('');
-    table.appendChild(tr);
-    letters.forEach(function(col) {
-      var cell = col + i;
-      var input = document.getElementById(cell);
-      input.addEventListener('keyup', keyup);
-      cells[cell] = input;
+  function repaint() {
+    var ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    lines.forEach(function(line) {
+      ctx.moveTo(line.x1, line.y1);
+      ctx.lineTo(line.x2, line.y2)
     });
+    if (curLine !== null) {
+      ctx.moveTo(curLine.x1, curLine.y1);
+      ctx.lineTo(curLine.x2, curLine.y2);
+    }
+    ctx.stroke();
   }
 
-  function keyup(event) {
-    socket.send(JSON.stringify({
-      cell: event.target.id,
-      value: event.target.value
-    }));
+  var socket = new WebSocket('ws://localhost:8080/');
+
+  socket.onopen = function() {
+    console.log('connection has set');
+  }
+  socket.onerror = function(error) {
+    console.log(error);
   }
 
-  var socket = new WebSocket('ws://127.0.0.1/');
+
+  socket.onclose = function(event) {
+    if (event.wasClean) {
+      alert('Соединение закрыто чисто');
+    } else {
+      alert('Обрыв соединения'); // например, "убит" процесс сервера
+    }
+    alert('Код: ' + event.code + ' причина: ' + event.reason);
+  };
 
   socket.onmessage = function(event) {
-    var change = JSON.parse(event.data);
-    var cell = cells[change.cell];
-    cell.value = change.value;
+    var newLine = JSON.parse(event.data);
+    console.log(newLine);
+    lines.push(newLine);
+    repaint();
   };
 
 </script>

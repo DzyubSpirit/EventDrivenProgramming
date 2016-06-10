@@ -10,8 +10,8 @@ var server = api.http.createServer(function(req, res) {
   res.end(index);
 });
 
-server.listen(80, function() {
-  console.log('Listen port 80');
+server.listen(8080, function() {
+  console.log('Listen port 8080');
 });
 
 var ws = new api.websocket.server({
@@ -28,7 +28,6 @@ ws.on('request', function(req) {
   connection.on('message', function(message) {
     var dataName = message.type + 'Data',
         data = message[dataName];
-    console.log('Received: ' + data);
     clients.forEach(function(client) {
       if (connection !== client) {
         client.send(data);
